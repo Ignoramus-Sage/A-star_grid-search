@@ -1,3 +1,7 @@
+import matplotlib
+import matplotlib.pyplot as plt
+#### Class to hold points info
+
 class pointInfo():
     """Class to store grid points as graph nodes.
     """
@@ -53,6 +57,8 @@ class pointInfo():
         return self.val != 1
 
 
+#### Utilities 
+
 def isValidCell(point_coor, grid_size) -> bool:
     """Assess if a given point is within the grid.
     :param array-like point_coor:
@@ -97,6 +103,8 @@ def heuristic(a, b, method='Manhattan') -> float:
     return distance
 
 
+
+
 def backtrackPath(pointsGrid, stop, verbose=True) -> list:
     """backtrack through points to find path.
 
@@ -137,7 +145,10 @@ def backtrackPath(pointsGrid, stop, verbose=True) -> list:
     return path
 
 
-def myPathPlanning(grid, start, stop):
+#### A* algorithm
+
+
+def myPathPlanning(grid, start, stop, method='Manhattan', lookup=4):
     """Executes A* algorithm on a grid.
 
     Determines if a path can be found between the start and
@@ -151,6 +162,10 @@ def myPathPlanning(grid, start, stop):
     :param list stop:
         A list including the x and y coordinates of the
         stop point.
+    :param string method:
+        The heuristic to use. See the heuristic function.
+    :param int lookup:
+        Number of directions to look into, can be 4 or 8.
     :returns:
         The path if found otherwise no output.
     :rtype:
@@ -158,9 +173,11 @@ def myPathPlanning(grid, start, stop):
     """
     # get the number rows and cols of the grid
     gridSize = (len(grid), len(grid[0]))
+    # check the lookup 
+    assert lookup in [4, 8], 'Lookup can be 4 or 8'
     # Convert the grid cells into points class
-    pointsGrid = [[pointInfo(i, j, grid[i][j]) for j in range(gridSize[0])]
-                  for i in range(gridSize[1])]
+    pointsGrid = [[pointInfo(i, j, grid[i][j]) for j in range(gridSize[1])]
+                  for i in range(gridSize[0])]
     # We check if the Start, stop are not in the grid
     if not isValidCell((start[0], start[1]), gridSize):
         print("The start is out of the grid")
@@ -195,8 +212,8 @@ def myPathPlanning(grid, start, stop):
     # initialise a boolean variable for to see if we reached the stop
     openList, reached = [pointsGrid[x][y]], False
     # Intilaise a boolean closed list to keep track of visited cells
-    closedList = [[False for i in range(gridSize[0])]
-                  for j in range(gridSize[1])]
+    closedList = [[False for j in range(gridSize[1])]
+                  for i in range(gridSize[0])]
     # Loop while there more cells to explore
     while len(openList) > 0:
         # discard the promising cell and retrieve it
@@ -204,8 +221,11 @@ def myPathPlanning(grid, start, stop):
         x, y = cell.x, cell.y
         closedList[x][y] == True
         # generate all neighbours coordinates
-        neighbourPosList = [[x+i, y+j] for i in range(-1, 2) for j in range(-1,2)]
-        neighbourPosList.remove([x, y])
+        if lookup == 8 :
+            neighbourPosList = [[x+i, y+j] for i in range(-1, 2) for j in range(-1,2)]
+            neighbourPosList.remove([x, y])
+        else : 
+            neighbourPosList = [[x+1, y], [x-1, y], [x, y-1], [x, y+1]]
         # Loop through neighbours
         for neighbourPos in neighbourPosList:
             xn, yn = neighbourPos # get x and y 
@@ -220,7 +240,7 @@ def myPathPlanning(grid, start, stop):
                     # backtrack to get path
                     path = backtrackPath(pointsGrid, stop)
                     reached = True
-                    return reached, path
+                    return path
                 # Ignore cell if it is blocked or in the closed list
                 # Else compute statitic and add to the open list
                 # if it is in the open list, update statistics
@@ -228,7 +248,7 @@ def myPathPlanning(grid, start, stop):
                     if not closedList[xn][yn] and pointsGrid[xn][yn].isUnblockedCell(): 
                         # compute cost and heuristic values
                         cost = pointsGrid[cell.x][cell.y].cost + heuristic(cell, pointsGrid[xn][yn], method='Euclidean')
-                        heur = heuristic(pointsGrid[xn][yn], stop)
+                        heur = heuristic(pointsGrid[xn][yn], stop, method)
                         # update statistics
                         if pointsGrid[xn][yn].fval == float('inf') or pointsGrid[xn][yn].fval > heur+cost:
                             # Update the details of the cell
@@ -246,11 +266,55 @@ def myPathPlanning(grid, start, stop):
     return None
 
 
-if __name__ == "__main__":
+#### Plotting path
 
-    grid = [ [ 1,0,1,0,0 ], [ 0,0,0,0,1 ], [ 1,0,1,1,0 ], [ 0,0,0,0,0 ], [ 0,1,0,1,0 ] ]
-    start = [4, 0]
-    stop = [0, 4]
-    _, path = myPathPlanning(grid, start, stop)
-    print(path)
+
+def plotPath(grid, start, stop, pathPlan):
+    """Plots a pth on a grid.
+
+    :param list of list grid:
+        A list of list that consists of 0 and 1.
+    :param list start:
+        A list including the x and y coordinates of the
+        start point.
+    :param list stop:
+        A list including the x and y coordinates of the
+        stop point.
+    :param list pathPlan:
+        The path planning
+    :returns:
+        None, draws a grid.
+    :rtype:
+        None
+    """
+    # Check for  empty path
+    # give different colors for point of interest
+    # green : okay, red : blocked
+    # black : path, yellow : start
+    # blue : stop
+    try:
+        for entry in pathPlan:
+            grid[entry[0]][entry[1]] = 2
+    except:
+        print('Empty path')
+    grid[start[0]][start[1]] = 3
+    grid[stop[0]][stop[1]] = 4
+    colors = 'green red black yellow blue'.split()
+    # get custom color map
+    cmap = matplotlib.colors.ListedColormap(colors, name='colors', N=None)
+    plt.figure()
+    plt.imshow(grid, cmap=cmap)
+    plt.xlabel('X-axis')
+    plt.ylabel('Y-axis')
+    plt.title('Grid')
+
+
+#### Testing the algorithm
+
+
+grid = [[1,0,1,0,0], [0,0,0,0,1], [1,0,1,1,0], [0,0,0,0,0], [0,1,0,1,0], [0, 1, 0, 0, 0]]
+start = [5, 0]
+stop = [0, 4]
+pathPlan = myPathPlanning(grid, start, stop, lookup=4)
+plotPath(grid, start, stop, pathPlan)
 
